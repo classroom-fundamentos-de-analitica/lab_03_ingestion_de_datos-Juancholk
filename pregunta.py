@@ -1,58 +1,55 @@
+"""
+Ingestión de datos - Reporte de clusteres
+-----------------------------------------------------------------------------------------
+
+Construya un dataframe de Pandas a partir del archivo 'clusters_report.txt', teniendo en
+cuenta que los nombres de las columnas deben ser en minusculas, reemplazando los espacios
+por guiones bajos; y que las palabras clave deben estar separadas por coma y con un solo 
+espacio entre palabra y palabra.
+
+
+"""
 import pandas as pd
 import re
 
-
 def ingest_data():
 
-    #Lectura
-    with open('clusters_report.txt', 'r') as file:
-        df = file.readlines()[4:] #Empieza desde la línea 4 para no tener en cuenta el encabezado
+    #
+    # Inserte su código aquí
+    #
+    with open("clusters_report.txt", "r") as file:
+        lines = file.readlines()
 
-    clusters = []
+        # Creación de los encabezados
+        header1, header2 = [re.sub(r"\s{2,}", "-", line).strip().split("-") for line in lines[:2]]
+        header1.pop()
+        header2.pop(0)
 
-    # Variables temporales para mantener los datos del cluster actual
-    # Diccionario con valores predeterminados (0 para los valores numéricos y una cadena vacía para las palabras clave)
-    guardar_cluster = {'cluster': 0, 'cantidad_de_palabras_clave': 0, 'porcentaje_de_palabras_clave': 0, 'principales_palabras_clave': ''}
+        # Se añaden al futuro dataframe
+        data = {
+            header1[0].lower().replace(' ', '_'): [],
+            f"{header1[1]} {header2[0]}".lower().replace(' ', '_'): [],
+            f"{header1[2]} {header2[1]}".lower().replace(' ', '_'): [],
+            header1[3].lower().replace(' ', '_'): [],
+        }
 
-    for line in df:
-        if re.match('^ +[0-9]+ +', line): #Con la lib re y el método match lo que se hace es mirar si la línea empieza con un número para entrar al loop
-            # Si la línea comienza con números, es una nueva entrada de cluster
-            if guardar_cluster['cluster'] != 0:
-                clusters.append(guardar_cluster.copy())  # Guardamos el cluster actual antes de comenzar uno nuevo
-            
-            numero, cantidad, porcentaje, *palabras = line.split() #Cualquier palabra adicional después de percentage será empaquetada en la lista words
-            guardar_cluster['cluster'] = int(numero)
-            guardar_cluster['cantidad_de_palabras_clave'] = int(cantidad)
-            guardar_cluster['porcentaje_de_palabras_clave'] = float(porcentaje.replace(',', '.'))
-            if palabras[0].startswith('%'):
-                palabras[0] = palabras[0][1:]  # Eliminar el primer carácter (%)
-        
-            # Actualizar la columna principales_palabras_clave, eliminando espacios en blanco extra al inicio
-            palabras_clave = ' '.join(palabras).strip()
-        
-            # Eliminar cualquier signo de puntuación no deseado al final de la cadena
-            palabras_clave = palabras_clave.rstrip('.')
-            guardar_cluster['principales_palabras_clave'] = palabras_clave
+        # A partir de que comienzan los datos
+        for line in lines[2:]:
+            # Se detectan más de dos espacios en blanco, se eliminan y se eliminan
+            # los elementos vacíos 
+            line = re.sub(r"\s{2,}", ".", line).strip().split(".")
+            line = list(filter(lambda x: x, line))
 
+            # Si hay un número, significa que es el comienzo de una nueva fila
+            if line and line[0].isnumeric():
+                data["cluster"].append(int(line[0]))
+                data["cantidad_de_palabras_clave"].append(int(line[1]))
+                data["porcentaje_de_palabras_clave"].append(float(line[2][:-2].replace(",", ".")))
+                data["principales_palabras_clave"].append(" ".join(line[3:]))
+            # De lo contrario, se continúa con las palabras clave de la fila anterior
+            elif data["principales_palabras_clave"]:
+                line = data["principales_palabras_clave"].pop() + " " + " ".join(line)                
+                data["principales_palabras_clave"].append(line.strip())
 
-        elif re.match('^ +[a-z]', line):
-            # Si la línea comienza con letras, es una continuación del cluster actual
-            palabras = line.split()
-            palabras_clave = ' '.join(palabras).strip()
-            
-            # Eliminar cualquier signo de puntuación no deseado al final de la cadena
-            palabras_clave = palabras_clave.rstrip('.')
-            
-            guardar_cluster['principales_palabras_clave'] += ' ' + palabras_clave
-
-
-    # Agregamos el último cluster después del bucle
-    if guardar_cluster['cluster'] != 0:
-        clusters.append(guardar_cluster)
-
-
-    # Construir el DataFrame
-    df = pd.DataFrame(clusters, columns=['cluster', 'cantidad_de_palabras_clave', 'porcentaje_de_palabras_clave', 'principales_palabras_clave'])
-
-    return df
-print(ingest_data())
+        df = pd.DataFrame(data)
+        return df
